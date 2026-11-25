@@ -5,6 +5,9 @@ API REST de gestión de inventario escrita en **Go** con **PostgreSQL**. Permite
 ## Demo
 https://inventrack-t0tr.onrender.com/
 
+<img width="1440" height="785" alt="image" src="https://github.com/user-attachments/assets/0c6ac64d-1e62-4873-9df5-beb9196bd429" />
+
+
 > Plan gratis de Render: la primera petición después de un rato sin uso puede tardar ~1 minuto.
 
 ## Tecnologías
