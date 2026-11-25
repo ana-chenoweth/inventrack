@@ -39,6 +39,9 @@ func main() {
 	mux.HandleFunc("DELETE /api/products/{id}", products.Delete)
 	mux.HandleFunc("POST /api/movements", movements.Create)
 	mux.HandleFunc("GET /api/movements", movements.List)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	srv := &http.Server{
 		Addr:              ":" + port,
