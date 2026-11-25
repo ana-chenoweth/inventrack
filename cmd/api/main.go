@@ -33,6 +33,10 @@ func main() {
 	movements := handlers.NewMovementHandler(repository.NewMovementRepo(pool))
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(web.IndexHTML)
+	})
 	mux.HandleFunc("GET /api/products", products.List)
 	mux.HandleFunc("POST /api/products", products.Create)
 	mux.HandleFunc("GET /api/products/{id}", products.Get)
@@ -42,7 +46,8 @@ func main() {
 	mux.HandleFunc("GET /api/movements", movements.List)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}
+    )
 
 	srv := &http.Server{
 		Addr:              ":" + port,
