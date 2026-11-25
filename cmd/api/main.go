@@ -13,6 +13,7 @@ import (
 	"inventrack/internal/database"
 	"inventrack/internal/handlers"
 	"inventrack/internal/repository"
+	"inventrack/web"
 )
 
 func main() {

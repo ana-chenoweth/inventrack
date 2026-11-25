@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventrack</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --muted:#6b7686; --line:#e3e7ec; --accent:#1d6fd8; --ok:#17803d; --bad:#c0392b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:20px 24px; background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:2px 0 0; color:var(--muted); font-size:13px; }
+  main { max-width:960px; margin:0 auto; padding:24px; display:grid; gap:20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; }
+  h2 { margin:0 0 12px; font-size:16px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  form.row { display:flex; flex-wrap:wrap; gap:8px; }
+  input { padding:7px 9px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+  input.qty { width:70px; }
+  button { padding:7px 12px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.in { background:var(--ok); } button.out { background:#b9770e; } button.del { background:transparent; color:var(--bad); padding:7px 6px; }
+  .actions { display:flex; gap:6px; align-items:center; justify-content:flex-end; }
+  .tag { padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .tag.IN { background:#e3f4ea; color:var(--ok); } .tag.OUT { background:#fbeed8; color:#9a5b00; }
+  #msg { min-height:22px; font-size:14px; } #msg.err { color:var(--bad); } #msg.ok { color:var(--ok); }
+  .empty { color:var(--muted); padding:8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Inventrack</h1>
+  <p>Gestión de inventario · API REST en Go + PostgreSQL · <a href="/api/products">/api/products</a></p>
+</header>
+<main>
+  <div id="msg"></div>
+
+  <section>
+    <h2>Nuevo producto</h2>
+    <form class="row" id="productForm">
+      <input name="name" placeholder="Nombre" required>
+      <input name="sku" placeholder="SKU" required>
+      <input name="description" placeholder="Descripción (opcional)" size="28">
+      <input name="quantity" class="qty" type="number" min="0" value="0" title="Stock inicial">
+      <button type="submit">Agregar</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Productos</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Nombre</th><th>SKU</th><th class="num">Stock</th><th></th></tr></thead>
+      <tbody id="products"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Movimientos recientes</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th>Fecha</th></tr></thead>
+      <tbody id="movements"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let productsById = {};
+
+function show(text, kind) {
+  const el = $('msg');
+  el.textContent = text || '';
+  el.className = kind || '';
+}
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  if (res.status === 204) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || ('Error ' + res.status));
+  return body;
+}
+
+function cell(text, cls) {
+  const td = document.createElement('td');
+  td.textContent = text;
+  if (cls) td.className = cls;
+  return td;
+}
+
+function emptyRow(tbody, cols, text) {
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = cols; td.className = 'empty'; td.textContent = text;
+  tr.appendChild(td); tbody.appendChild(tr);
+}
+
+async function move(productId, type, input) {
+  const quantity = parseInt(input.value, 10);
+  try {
+    await api('/api/movements', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: productId, type, quantity }),
+    });
+    show('Movimiento registrado.', 'ok');
+  } catch (e) { show(e.message, 'err'); }
+  load();
+}
+
+async function remove(p) {
+  if (!confirm('¿Eliminar "' + p.name + '" y sus movimientos?')) return;
+  try { await api('/api/products/' + p.id, { method: 'DELETE' }); show('Producto eliminado.', 'ok'); }
+  catch (e) { show(e.message, 'err'); }
+  load();
+}
+
+function renderProducts(list) {
+  const tbody = $('products');
+  tbody.replaceChildren();
+  productsById = {};
+  if (!list.length) return emptyRow(tbody, 5, 'Aún no hay productos.');
+  for (const p of list) {
+    productsById[p.id] = p;
+    const tr = document.createElement('tr');
+    tr.append(cell(p.id), cell(p.name), cell(p.sku), cell(p.quantity, 'num'));
+
+    const qty = document.createElement('input');
+    qty.type = 'number'; qty.min = '1'; qty.value = '1'; qty.className = 'qty';
+    const bIn = document.createElement('button'); bIn.textContent = '+ Entrada'; bIn.className = 'in';
+    const bOut = document.createElement('button'); bOut.textContent = '− Salida'; bOut.className = 'out';
+    const bDel = document.createElement('button'); bDel.textContent = 'Eliminar'; bDel.className = 'del';
+    bIn.onclick = () => move(p.id, 'IN', qty);
+    bOut.onclick = () => move(p.id, 'OUT', qty);
+    bDel.onclick = () => remove(p);
+
+    const td = document.createElement('td');
+    const box = document.createElement('div'); box.className = 'actions';
+    box.append(qty, bIn, bOut, bDel);
+    td.appendChild(box); tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+}
+
+function renderMovements(list) {
+  const tbody = $('movements');
+  tbody.replaceChildren();
+  if (!list.length) return emptyRow(tbody, 5, 'Aún no hay movimientos.');
+  for (const m of list.slice(0, 15)) {
+    const tr = document.createElement('tr');
+    const p = productsById[m.product_id];
+    const tag = document.createElement('td');
+    const span = document.createElement('span');
+    span.className = 'tag ' + m.type; span.textContent = m.type;
+    tag.appendChild(span);
+    tr.append(cell(m.id), cell(p ? p.name + ' (#' + m.product_id + ')' : '#' + m.product_id), tag,
+              cell(m.quantity, 'num'), cell(new Date(m.created_at).toLocaleString()));
+    tbody.appendChild(tr);
+  }
+}
+
+async function load() {
+  try {
+    const products = await api('/api/products');
+    renderProducts(products);
+    renderMovements(await api('/api/movements'));
+  } catch (e) { show(e.message, 'err'); }
+}
+
+$('productForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  try {
+    await api('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: f.name.value, sku: f.sku.value, description: f.description.value,
+        quantity: parseInt(f.quantity.value, 10) || 0,
+      }),
+    });
+    f.reset(); f.quantity.value = 0;
+    show('Producto creado.', 'ok');
+  } catch (e) { show(e.message, 'err'); }
+  load();
+});
+
+load();
+</script>
+</body>
+</html>
