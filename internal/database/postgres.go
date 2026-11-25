@@ -1,0 +1,21 @@
+package database
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// Connect abre un pool de conexiones y verifica que la base responda.
+func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("create pool: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping database: %w", err)
+	}
+	return pool, nil
+}
