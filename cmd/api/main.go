@@ -37,6 +37,9 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(web.IndexHTML)
 	})
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 	mux.HandleFunc("GET /api/products", products.List)
 	mux.HandleFunc("POST /api/products", products.Create)
 	mux.HandleFunc("GET /api/products/{id}", products.Get)
@@ -44,10 +47,6 @@ func main() {
 	mux.HandleFunc("DELETE /api/products/{id}", products.Delete)
 	mux.HandleFunc("POST /api/movements", movements.Create)
 	mux.HandleFunc("GET /api/movements", movements.List)
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}
-    )
 
 	srv := &http.Server{
 		Addr:              ":" + port,
