@@ -9,7 +9,7 @@ services:
     ports:
       # Si ya tienes un Postgres local en el 5432, cambia a "5433:5432"
       # y ajusta DATABASE_URL.
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Los .sql de esta carpeta se ejecutan solo la primera vez que se crea el volumen.
