@@ -2,6 +2,11 @@
 
 API REST de gestión de inventario escrita en **Go** con **PostgreSQL**. Permite administrar productos y registrar movimientos de entrada/salida de existencias, con validaciones y transacciones SQL.
 
+## Demo
+https://inventrack-t0tr.onrender.com/api/products
+
+> Plan gratis de Render: la primera petición después de un rato sin uso puede tardar ~1 minuto.
+
 ## Tecnologías
 
 - Go (`net/http`, enrutador estándar con métodos y parámetros de ruta)
